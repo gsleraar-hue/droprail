@@ -6,10 +6,7 @@
   "main": "main.js",
   "private": true,
   "license": "MIT",
-  "author": {
-    "name": "Jan-Wolter",
-    "email": "jan-wolter@lessonup.com"
-  },
+  "author": "Jan-Wolter",
   "repository": {
     "type": "git",
     "url": "https://github.com/gsleraar-hue/droprail.git"
