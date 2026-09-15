@@ -1,0 +1,80 @@
+{
+  "name": "droprail",
+  "productName": "Droprail",
+  "version": "0.1.0",
+  "description": "A rail at the edge of your screen that catches dragged images and saves them",
+  "main": "main.js",
+  "private": true,
+  "license": "MIT",
+  "author": {
+    "name": "Jan-Wolter",
+    "email": "jan-wolter@lessonup.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gsleraar-hue/droprail.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable --publish never",
+    "dist-mac": "electron-builder --mac --publish never",
+    "icon": "node dev/make-icon.js",
+    "selftest": "electron dev/selftest.js",
+    "smoke": "electron dev/smoke.js"
+  },
+  "build": {
+    "appId": "nl.gsleraar.droprail",
+    "productName": "Droprail",
+    "files": [
+      "main.js",
+      "catcher.js",
+      "preload.js",
+      "renderer/**",
+      "build/icon.ico",
+      "build/icon.png",
+      "build/icon.icns"
+    ],
+    "afterPack": "build/after-pack.js",
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.utilities",
+      "darkModeSupport": true,
+      "identity": null
+    },
+    "dmg": {
+      "title": "Droprail",
+      "artifactName": "Droprail-${version}-${arch}.dmg"
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.3.0",
+    "electron-builder": "^26.15.3"
+  }
+}

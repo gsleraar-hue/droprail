@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src data: file:; style-src 'self'; script-src 'self'"
+    />
+    <title>Droprail</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="rail" id="rail">
+      <div class="grip" title="Drag to move the rail">
+        <span></span><span></span><span></span>
+      </div>
+
+      <div class="zone" id="zone">
+        <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M12 3v11m0 0 4.5-4.5M12 14l-4.5-4.5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M4.5 16v3.5h15V16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <p class="hint" id="hint">Drop here</p>
+      </div>
+
+      <button class="last" id="last" type="button" hidden>
+        <img id="thumb" alt="" hidden />
+        <span class="kind" id="kind" hidden></span>
+      </button>
+
+      <div class="tools">
+        <button class="tool" id="folder" type="button" title="Open folder">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2.5h9A1.5 1.5 0 0 1 21 10v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+        <button class="tool" id="cog" type="button" title="Settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.7" />
+            <path
+              d="M12 3.2v2.1m0 13.4v2.1M20.8 12h-2.1m-13.4 0H3.2m14.2-6.2-1.5 1.5M8.1 15.9l-1.5 1.5m10.8 0-1.5-1.5M8.1 8.1 6.6 6.6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

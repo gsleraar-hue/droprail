@@ -1,0 +1,234 @@
+:root {
+  --ink: #e8edf2;
+  --dim: #8b97a6;
+  --accent: #3ed3ae;
+  --accent-soft: rgba(62, 211, 174, 0.16);
+  --warn: #ff7a73;
+  --panel: rgba(20, 25, 32, 0.9);
+  --edge: rgba(255, 255, 255, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+  cursor: default;
+  user-select: none;
+  font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  color: var(--ink);
+}
+
+.rail {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 10px;
+  border-radius: 18px;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  opacity: var(--rest, 0.6);
+  transition: opacity 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.rail:hover,
+.rail.over,
+.rail.busy {
+  opacity: 1;
+}
+
+.rail.over {
+  border-color: var(--accent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--accent) inset;
+}
+
+/* Drag handle: the only part that moves the window itself. */
+.grip {
+  -webkit-app-region: drag;
+  width: 100%;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex: none;
+}
+
+.grip span {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--dim);
+}
+
+.zone {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 2px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 13px;
+  text-align: center;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease;
+}
+
+.rail.over .zone {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  border-style: solid;
+  transform: scale(1.03);
+}
+
+.arrow {
+  width: 30px;
+  height: 30px;
+  color: var(--dim);
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+
+.rail.over .arrow {
+  color: var(--accent);
+  transform: translateY(2px);
+}
+
+.rail.busy .arrow {
+  color: var(--accent);
+  animation: pulse 0.9s ease-in-out infinite;
+}
+
+.rail.done .arrow {
+  color: var(--accent);
+}
+
+.rail.failed .arrow {
+  color: var(--warn);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.hint {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.25;
+  color: var(--dim);
+  word-break: break-word;
+}
+
+.rail.over .hint,
+.rail.done .hint {
+  color: var(--accent);
+}
+
+.rail.failed .hint {
+  color: var(--warn);
+}
+
+.last {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.last img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Type badge instead of a thumbnail: the extension as a label. Each file type
+   brings its own --kind colour, with the accent colour as the fallback. */
+.kind {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--kind, var(--accent));
+  background: color-mix(in srgb, var(--kind, var(--accent)) 14%, transparent);
+}
+
+.kind[data-ext='jpg'],
+.kind[data-ext='jpeg'] {
+  --kind: #f0b45e;
+}
+
+.kind[data-ext='png'] {
+  --kind: #3ed3ae;
+}
+
+.kind[data-ext='gif'] {
+  --kind: #c58bf2;
+}
+
+.kind[data-ext='webp'],
+.kind[data-ext='avif'] {
+  --kind: #62b0f5;
+}
+
+.kind[data-ext='svg'] {
+  --kind: #f58ba8;
+}
+
+.last:hover {
+  border-color: var(--accent);
+}
+
+.tools {
+  flex: none;
+  display: flex;
+  gap: 4px;
+}
+
+.tool {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+}
+
+.tool svg {
+  width: 17px;
+  height: 17px;
+}
+
+.tool:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+}

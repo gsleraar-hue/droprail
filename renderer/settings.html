@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src data:; style-src 'self'; script-src 'self'"
+    />
+    <title>Droprail settings</title>
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Droprail</h1>
+      <p class="lead">Where images end up, and how the rail behaves.</p>
+
+      <section class="card">
+        <h2>Folder</h2>
+        <p class="path" id="dir">&nbsp;</p>
+        <div class="row buttons">
+          <button type="button" id="pick" class="primary">Choose another folder</button>
+          <button type="button" id="open">Open folder</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Rail</h2>
+
+        <label class="row">
+          <span>
+            Always on top
+            <small>Stays visible above your browser and other windows.</small>
+          </span>
+          <input type="checkbox" id="onTop" class="switch" />
+        </label>
+
+        <label class="row">
+          <span>
+            Show rail
+            <small id="shownHint">Off leaves only the tray icon.</small>
+          </span>
+          <input type="checkbox" id="shown" class="switch" />
+        </label>
+
+        <label class="row">
+          <span>
+            Start at login
+            <small>Droprail starts on its own once you have signed in.</small>
+          </span>
+          <input type="checkbox" id="autostart" class="switch" />
+        </label>
+
+        <div class="row">
+          <span>
+            Side of the screen
+            <small>The rail snaps to this edge.</small>
+          </span>
+          <div class="segmented" id="side">
+            <button type="button" data-side="left">Left</button>
+            <button type="button" data-side="right">Right</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <span>
+            Last catch
+            <small>What sits at the bottom of the rail after a drop.</small>
+          </span>
+          <div class="segmented" id="preview">
+            <button type="button" data-preview="type">Type</button>
+            <button type="button" data-preview="thumb">Thumbnail</button>
+            <button type="button" data-preview="off">Off</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <span>
+            Visibility when idle
+            <small id="restValue">60%</small>
+          </span>
+          <input type="range" id="rest" min="15" max="100" step="5" />
+        </div>
+      </section>
+
+      <footer>
+        <span class="tip">Everything is saved as you change it.</span>
+        <button type="button" id="close" class="primary">Done</button>
+      </footer>
+    </main>
+
+    <script src="settings.js"></script>
+  </body>
+</html>
