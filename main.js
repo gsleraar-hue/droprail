@@ -5,6 +5,7 @@ const {
   BrowserWindow,
   Menu,
   Tray,
+  crashReporter,
   ipcMain,
   dialog,
   shell,
@@ -14,6 +15,11 @@ const {
 const path = require('path');
 const fs = require('fs');
 const catcher = require('./catcher');
+
+// Keep crash dumps on disk. Nothing is ever uploaded; this only makes sure a
+// renderer that goes down leaves a trace in userData/Crashpad instead of
+// disappearing without one. It has to run before the app is ready.
+crashReporter.start({ uploadToServer: false });
 
 const RAIL_W = 88;
 const RAIL_H = 268;
@@ -31,6 +37,9 @@ let win = null;
 let settingsWin = null;
 let tray = null;
 let moveTimer = null;
+let topmostTimer = null;
+// Where the rail stood when you grabbed it; set only while you are moving it.
+let dragFrom = null;
 
 // ---------------------------------------------------------------- settings
 
@@ -79,6 +88,11 @@ function loadConfig() {
     // How visible the rail is while you are not using it.
     rest: Number.isFinite(saved.rest) ? snapRest(saved.rest) : 0.6,
     hidden: saved.hidden === true,
+    // Switch the rail off by itself as soon as an external screen turns up. On
+    // a dock a rail against the edge is in the way more than it helps.
+    offExternal: saved.offExternal === true,
+    // Where the rail went is explained once, not on every switch-off.
+    toldAboutTray: saved.toldAboutTray === true,
     // What the rail shows of the last catch: 'type' (extension badge),
     // 'thumb' (thumbnail) or 'off' (nothing).
     preview: ['type', 'thumb', 'off'].includes(saved.preview) ? saved.preview : 'type',
@@ -115,6 +129,8 @@ function broadcast() {
     onTop: cfg.onTop,
     rest: cfg.rest,
     hidden: cfg.hidden,
+    offExternal: cfg.offExternal,
+    external: externalDisplay(),
     preview: cfg.preview,
     autostart: app.getLoginItemSettings().openAtLogin,
     platform: process.platform,
@@ -125,16 +141,48 @@ function broadcast() {
   return payload;
 }
 
+// A laptop reports its built-in panel as an internal display and everything
+// else as external. Shut the lid and the internal one drops off the list
+// altogether, so a docked machine still reads as docked. A desktop has no
+// internal display at all; there the only sensible reading of "external
+// screen" is a second monitor.
+function externalDisplay() {
+  const displays = screen.getAllDisplays();
+  if (displays.some((d) => d.internal === true)) {
+    return displays.some((d) => d.internal === false);
+  }
+  return displays.length > 1;
+}
+
+// Switched off by hand, or by the external-screen rule.
+function shouldHide() {
+  const cfg = loadConfig();
+  return cfg.hidden || (cfg.offExternal && externalDisplay());
+}
+
 function applyConfig() {
   const cfg = loadConfig();
   if (win && !win.isDestroyed()) {
     win.setAlwaysOnTop(cfg.onTop, 'screen-saver');
     const pos = placement(cfg);
     win.setBounds({ x: pos.x, y: pos.y, width: RAIL_W, height: RAIL_H });
-    if (cfg.hidden && win.isVisible()) win.hide();
-    if (!cfg.hidden && !win.isVisible()) win.showInactive();
+    const hide = shouldHide();
+    if (hide && win.isVisible()) win.hide();
+    if (!hide && !win.isVisible()) win.showInactive();
   }
   return broadcast();
+}
+
+// Windows quietly drops the topmost flag when an app takes the screen in
+// exclusive fullscreen, and sometimes when the display configuration changes.
+// Electron still believes the window is on top, so asking for it again is a
+// no-op: the flag has to be cleared before it can be set back.
+function reassertTopmost() {
+  if (!win || win.isDestroyed()) return;
+  if (!loadConfig().onTop) return;
+  win.setAlwaysOnTop(false);
+  win.setAlwaysOnTop(true, 'screen-saver');
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 }
 
 // ---------------------------------------------------------------- window
@@ -192,14 +240,29 @@ function createWindow() {
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
+  // When the renderer dies the main process stays alive in the tray and the
+  // rail simply vanishes from the screen, which looks exactly like the app
+  // stopped. Rebuild the window instead of leaving it in that state; a clean
+  // exit is our own doing and needs no rescue.
+  win.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason === 'clean-exit') return;
+    const dead = win;
+    win = null;
+    if (dead && !dead.isDestroyed()) dead.destroy();
+    setTimeout(createWindow, 500);
+  });
+
   win.on('moved', () => {
+    // Our own drag ends with a snap of its own; snapping halfway through a
+    // move would pull the rail out from under the mouse.
+    if (dragFrom) return;
     clearTimeout(moveTimer);
     moveTimer = setTimeout(snapToEdge, 260);
   });
 
   win.loadFile(path.join(__dirname, 'renderer', 'index.html')).then(() => {
     // showInactive: the rail must never steal focus from your browser.
-    if (!loadConfig().hidden) win.showInactive();
+    if (!shouldHide()) win.showInactive();
   });
 }
 
@@ -223,8 +286,25 @@ function toggleWindow() {
     createWindow();
     return;
   }
-  saveConfig({ hidden: win.isVisible() });
+  // Asking for the rail while the external-screen rule is holding it back can
+  // only mean one thing: let it through, and drop the rule rather than leave
+  // the menu claiming the rail is on while nothing shows up.
+  saveConfig(shouldHide() ? { hidden: false, offExternal: false } : { hidden: true });
   applyConfig();
+}
+
+// The switch-off button on the rail itself. The first time, say where it went:
+// a rail that disappears with no icon in sight looks like a crash.
+function hideRail() {
+  const told = loadConfig().toldAboutTray;
+  saveConfig({ hidden: true, toldAboutTray: true });
+  applyConfig();
+  if (told || !WINDOWS || !tray || tray.isDestroyed()) return;
+  tray.displayBalloon({
+    icon: TRAY_ICON,
+    title: 'Droprail is still running',
+    content: 'Click the icon in the tray to bring the rail back.',
+  });
 }
 
 function openSettings() {
@@ -236,7 +316,7 @@ function openSettings() {
 
   settingsWin = new BrowserWindow({
     width: 440,
-    height: 760,
+    height: 810,
     resizable: false,
     maximizable: false,
     fullscreenable: false,
@@ -288,6 +368,34 @@ ipcMain.handle('menu', () => {
 
 ipcMain.handle('settings', () => openSettings());
 
+ipcMain.handle('hide', () => hideRail());
+
+ipcMain.handle('quit', () => app.quit());
+
+// Moving the rail by hand. -webkit-app-region: drag is the usual way, but on a
+// frameless transparent window it swallows the mouse without moving anything,
+// which leaves the rail stuck exactly where it is. Dragging on screen
+// coordinates always works, and it lets you grab the rail anywhere instead of
+// on a strip of dots the width of a pencil.
+ipcMain.handle('drag-start', () => {
+  if (win && !win.isDestroyed()) dragFrom = win.getBounds();
+});
+
+ipcMain.handle('drag-move', (_e, dx, dy) => {
+  if (!dragFrom || !win || win.isDestroyed()) return;
+  win.setBounds({
+    x: Math.round(dragFrom.x + dx),
+    y: Math.round(dragFrom.y + dy),
+    width: RAIL_W,
+    height: RAIL_H,
+  });
+});
+
+ipcMain.handle('drag-end', (_e, moved) => {
+  dragFrom = null;
+  if (moved) snapToEdge();
+});
+
 ipcMain.handle('pick-dir', async () => {
   const chosen = await chooseDir();
   return chosen || loadConfig().dir;
@@ -307,6 +415,9 @@ ipcMain.handle('set', (_e, key, value) => {
       break;
     case 'hidden':
       saveConfig({ hidden: !!value });
+      break;
+    case 'offExternal':
+      saveConfig({ offExternal: !!value });
       break;
     case 'preview':
       saveConfig({ preview: ['type', 'thumb', 'off'].includes(value) ? value : 'type' });
@@ -349,8 +460,17 @@ function buildContextMenu() {
     {
       label: 'Show rail',
       type: 'checkbox',
-      checked: !cfg.hidden,
+      checked: !shouldHide(),
       click: toggleWindow,
+    },
+    {
+      label: 'Off on an external screen',
+      type: 'checkbox',
+      checked: cfg.offExternal,
+      click: (item) => {
+        saveConfig({ offExternal: item.checked });
+        applyConfig();
+      },
     },
     {
       label: 'Always on top',
@@ -405,7 +525,28 @@ if (!app.requestSingleInstanceLock()) {
     adoptOldConfig();
     createWindow();
     createTray();
+
+    // A monitor appearing, disappearing or changing resolution is the moment
+    // the rail loses both its place on top and its position, so put it back.
+    for (const event of [
+      'display-added',
+      'display-removed',
+      'display-metrics-changed',
+    ]) {
+      screen.on(event, () => {
+        applyConfig();
+        reassertTopmost();
+      });
+    }
+
+    // Not every way of losing the flag announces itself — coming back from a
+    // game that ran in exclusive fullscreen usually fires no event at all. A
+    // slow heartbeat is the only reliable catch, and reapplying the flag on an
+    // already-topmost window costs nothing.
+    topmostTimer = setInterval(reassertTopmost, 30000);
   });
+
+  app.on('will-quit', () => clearInterval(topmostTimer));
 
   // The rail keeps living in the tray, even when a window is closed.
   app.on('window-all-closed', (e) => e.preventDefault());

@@ -4,6 +4,8 @@ const dirEl = document.getElementById('dir');
 const onTop = document.getElementById('onTop');
 const shown = document.getElementById('shown');
 const shownHint = document.getElementById('shownHint');
+const offExternal = document.getElementById('offExternal');
+const externalHint = document.getElementById('externalHint');
 const autostart = document.getElementById('autostart');
 const sideBox = document.getElementById('side');
 const previewBox = document.getElementById('preview');
@@ -20,14 +22,21 @@ function apply(state) {
   dirEl.textContent = state.dir || '';
   onTop.checked = !!state.onTop;
   shown.checked = !state.hidden;
+  offExternal.checked = !!state.offExternal;
   autostart.checked = !!state.autostart;
+  // Say what the rule is doing right now, rather than leaving you to work out
+  // whether this machine counts as having an external screen.
+  externalHint.textContent = state.external
+    ? 'An external screen is connected right now.'
+    : 'The rail switches itself off while a second screen is connected.';
   rest.value = Math.round((state.rest || 0.6) * 100);
   restValue.textContent = `${rest.value}%`;
   // macOS has no system tray; the same icon lives in the menu bar there.
+  const icon = state.platform === 'darwin' ? 'menu bar icon' : 'tray icon';
   shownHint.textContent =
-    state.platform === 'darwin'
-      ? 'Off leaves only the menu bar icon.'
-      : 'Off leaves only the tray icon.';
+    state.offExternal && state.external
+      ? `An external screen is keeping it off; the ${icon} stays.`
+      : `Off leaves only the ${icon}.`;
   for (const b of sideBox.querySelectorAll('button')) {
     b.classList.toggle('on', b.dataset.side === state.side);
   }
@@ -44,6 +53,7 @@ function set(key, value) {
 
 onTop.addEventListener('change', () => set('onTop', onTop.checked));
 shown.addEventListener('change', () => set('hidden', !shown.checked));
+offExternal.addEventListener('change', () => set('offExternal', offExternal.checked));
 autostart.addEventListener('change', () => set('autostart', autostart.checked));
 
 rest.addEventListener('input', () => {
@@ -67,6 +77,7 @@ document.getElementById('pick').addEventListener('click', async () => {
 });
 
 document.getElementById('open').addEventListener('click', () => window.droprail.openDir());
+document.getElementById('quit').addEventListener('click', () => window.droprail.quit());
 document.getElementById('close').addEventListener('click', () => window.close());
 
 window.droprail.state().then(apply);

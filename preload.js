@@ -20,5 +20,12 @@ contextBridge.exposeInMainWorld('droprail', {
   reveal: (file) => ipcRenderer.invoke('reveal', file),
   menu: () => ipcRenderer.invoke('menu'),
   settings: () => ipcRenderer.invoke('settings'),
+  hide: () => ipcRenderer.invoke('hide'),
+  quit: () => ipcRenderer.invoke('quit'),
+  // Moving the rail: the main process does the actual moving, the renderer
+  // only reports how far the mouse has travelled since you grabbed it.
+  dragStart: () => ipcRenderer.invoke('drag-start'),
+  dragMove: (dx, dy) => ipcRenderer.invoke('drag-move', dx, dy),
+  dragEnd: (moved) => ipcRenderer.invoke('drag-end', moved),
   onState: (cb) => ipcRenderer.on('state', (_e, payload) => cb(payload)),
 });

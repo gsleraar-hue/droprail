@@ -5,7 +5,7 @@
 // so silent renderer errors become visible.
 // Run with: npm run smoke
 
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, screen } = require('electron');
 
 require('../main');
 
@@ -52,6 +52,9 @@ app.whenReady().then(async () => {
         catch: document.querySelector('#preview button.on') && document.querySelector('#preview button.on').dataset.preview,
         rest: document.getElementById('rest').value,
         hint: document.getElementById('shownHint').textContent,
+        offExternal: document.getElementById('offExternal').checked,
+        externalHint: document.getElementById('externalHint').textContent,
+        quitButton: document.getElementById('quit').textContent,
         height: document.body.scrollHeight,
       })
     `);
@@ -100,6 +103,167 @@ app.whenReady().then(async () => {
     "getComputedStyle(document.getElementById('rail')).opacity"
   );
   console.log('idle opacity of the rail:', rest);
+
+  // ------------------------------------------------------- the button row
+  const tools = await rail.webContents.executeJavaScript(`
+    (() => {
+      const row = document.querySelector('.tools');
+      return {
+        buttons: Array.from(row.children).map((b) => b.id),
+        rowWidth: row.scrollWidth,
+        room: document.getElementById('rail').clientWidth,
+      };
+    })()
+  `);
+  console.log('buttons on the rail:', JSON.stringify(tools));
+  if (!tools.buttons.includes('power')) {
+    problems++;
+    console.log('FAIL: no off button on the rail');
+  }
+  if (tools.rowWidth > tools.room) {
+    problems++;
+    console.log(`FAIL: the buttons (${tools.rowWidth}px) do not fit the rail (${tools.room}px)`);
+  }
+
+  // ------------------------------------------------------- moving the rail
+  // The window used to be moved by -webkit-app-region; that is gone. The
+  // renderer now reports how far the mouse travelled and the main process
+  // moves the window, so a synthetic pointer can act out the whole thing.
+  const before = rail.getBounds();
+  const drag = async (type, x, y) => {
+    await rail.webContents.executeJavaScript(`
+      document.getElementById('rail').dispatchEvent(
+        new PointerEvent(${JSON.stringify(type)}, {
+          bubbles: true,
+          pointerId: 1,
+          button: 0,
+          buttons: 1,
+          screenX: ${x},
+          screenY: ${y},
+        })
+      )
+    `);
+    await new Promise((r) => setTimeout(r, 260));
+  };
+
+  await drag('pointerdown', 600, 500);
+  await drag('pointermove', 460, 590);
+  const moved = rail.getBounds();
+  console.log('rail halfway through the drag:', JSON.stringify(moved));
+  if (moved.x !== before.x - 140 || moved.y !== before.y + 90) {
+    problems++;
+    console.log('FAIL: the rail did not follow the drag');
+  }
+
+  await drag('pointerup', 460, 590);
+  const dropped = rail.getBounds();
+  console.log('rail after letting go:', JSON.stringify(dropped));
+  if (dropped.x === moved.x) {
+    problems++;
+    console.log('FAIL: the rail did not snap back to the edge');
+  }
+  const stillDragging = await rail.webContents.executeJavaScript('dragging !== null');
+  if (stillDragging) {
+    problems++;
+    console.log('FAIL: the drag never ended');
+  }
+
+  await drag('pointerdown', 460, 590);
+  await drag('pointermove', 600, 500);
+  await drag('pointerup', 600, 500);
+  const back = rail.getBounds();
+  console.log('rail back where it started:', JSON.stringify(back));
+  if (back.y !== before.y) {
+    problems++;
+    console.log('FAIL: the rail did not come back to its own spot');
+  }
+
+  // A press on a button must not drag the window along.
+  const parked = rail.getBounds();
+  await drag('pointerdown', 600, 500);
+  await drag('pointerup', 600, 500);
+  if (rail.getBounds().x !== parked.x || rail.getBounds().y !== parked.y) {
+    problems++;
+    console.log('FAIL: a press without a move shifted the rail');
+  }
+
+  // ------------------------------------------------- off, and back again
+  await rail.webContents.executeJavaScript("document.getElementById('power').click(); true");
+  await new Promise((r) => setTimeout(r, 500));
+  console.log('rail after the off button:', rail.isVisible());
+  if (rail.isVisible()) {
+    problems++;
+    console.log('FAIL: the off button left the rail standing');
+  }
+  await rail.webContents.executeJavaScript("window.droprail.set('hidden', false)");
+  await new Promise((r) => setTimeout(r, 500));
+  if (!rail.isVisible()) {
+    problems++;
+    console.log('FAIL: the rail did not come back');
+  }
+
+  // ------------------------------------------ the external-screen rule
+  const screens = screen.getAllDisplays();
+  const state = await rail.webContents.executeJavaScript('window.droprail.state()');
+  console.log(
+    `screens: ${screens.length}, built-in: ${screens.filter((d) => d.internal).length}, ` +
+      `the rule sees an external screen: ${state.external}`
+  );
+  await rail.webContents.executeJavaScript("window.droprail.set('offExternal', true)");
+  await new Promise((r) => setTimeout(r, 500));
+  console.log(`rail with the rule on: ${rail.isVisible()} (should be ${!state.external})`);
+  if (rail.isVisible() === state.external) {
+    problems++;
+    console.log('FAIL: the external-screen rule did not land');
+  }
+  await rail.webContents.executeJavaScript("window.droprail.set('offExternal', false)");
+  await new Promise((r) => setTimeout(r, 500));
+  if (!rail.isVisible()) {
+    problems++;
+    console.log('FAIL: the rail stayed away after the rule went off');
+  }
+
+  // The rule can only really be seen on a machine with two screens. Hand the
+  // app a made-up pair instead: a laptop panel plus a monitor, then the panel
+  // on its own. The real list comes back afterwards.
+  const realDisplays = screen.getAllDisplays;
+  const fake = (id, internal) => ({
+    id,
+    internal,
+    bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+    workArea: { x: 0, y: 0, width: 1920, height: 1040 },
+    workAreaSize: { width: 1920, height: 1040 },
+    size: { width: 1920, height: 1080 },
+    scaleFactor: 1,
+    rotation: 0,
+  });
+  const pretend = async (displays, note) => {
+    screen.getAllDisplays = () => displays;
+    await rail.webContents.executeJavaScript("window.droprail.set('offExternal', true)");
+    await new Promise((r) => setTimeout(r, 400));
+    console.log(`${note}: rail up = ${rail.isVisible()}`);
+    return rail.isVisible();
+  };
+
+  if (await pretend([fake(901, true), fake(902, false)], 'laptop with a monitor')) {
+    problems++;
+    console.log('FAIL: the rail stayed up next to an external screen');
+  }
+  if (!(await pretend([fake(901, true)], 'laptop on its own'))) {
+    problems++;
+    console.log('FAIL: the rail stayed away with only the built-in screen');
+  }
+  if (await pretend([fake(901, false), fake(902, false)], 'desktop with two monitors')) {
+    problems++;
+    console.log('FAIL: a second monitor did not count as an external screen');
+  }
+  screen.getAllDisplays = realDisplays;
+  await rail.webContents.executeJavaScript("window.droprail.set('offExternal', false)");
+  await new Promise((r) => setTimeout(r, 400));
+  if (!rail.isVisible()) {
+    problems++;
+    console.log('FAIL: the rail did not come back on the real screens');
+  }
 
   // Act out the three settings for the last catch without a real drop: the
   // rail gets handed the same answer it would get after a successful one.

@@ -6,6 +6,7 @@ const last = document.getElementById('last');
 const thumb = document.getElementById('thumb');
 const kind = document.getElementById('kind');
 const folder = document.getElementById('folder');
+const power = document.getElementById('power');
 const cog = document.getElementById('cog');
 
 const IDLE = 'Drop here';
@@ -146,12 +147,58 @@ last.addEventListener('click', () => {
 });
 
 folder.addEventListener('click', () => window.droprail.openDir());
+power.addEventListener('click', () => window.droprail.hide());
 cog.addEventListener('click', () => window.droprail.settings());
 
 window.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   window.droprail.menu();
 });
+
+// ---------------------------------------------------------------- moving
+
+// The rail is moved by hand instead of with -webkit-app-region: drag. That
+// region swallows the mouse on a frameless transparent window without moving
+// anything, so the rail stayed put however hard you pulled. Screen coordinates
+// stay where they are while the window slides underneath, which makes the
+// distance from the point you grabbed all the main process needs.
+let dragging = null;
+
+rail.addEventListener('pointerdown', (e) => {
+  // Left button only, and never on a button: those have a job of their own.
+  if (e.button !== 0 || e.target.closest('button')) return;
+  dragging = { id: e.pointerId, x: e.screenX, y: e.screenY, moved: false };
+  try {
+    rail.setPointerCapture(e.pointerId);
+  } catch (_) {
+    // Without capture the move stops as soon as the pointer leaves the rail,
+    // which is better than no move at all.
+  }
+  document.body.classList.add('dragging');
+  window.droprail.dragStart();
+});
+
+rail.addEventListener('pointermove', (e) => {
+  if (!dragging || e.pointerId !== dragging.id) return;
+  const dx = e.screenX - dragging.x;
+  const dy = e.screenY - dragging.y;
+  // A hand shaking by a pixel is a click, not a move.
+  if (!dragging.moved && Math.abs(dx) + Math.abs(dy) < 3) return;
+  dragging.moved = true;
+  window.droprail.dragMove(dx, dy);
+});
+
+function endDrag(e) {
+  if (!dragging || (e && e.pointerId !== dragging.id)) return;
+  const { moved } = dragging;
+  dragging = null;
+  document.body.classList.remove('dragging');
+  // The capture ends with the pointer itself; only the snap is ours.
+  window.droprail.dragEnd(moved);
+}
+
+rail.addEventListener('pointerup', endDrag);
+rail.addEventListener('pointercancel', endDrag);
 
 // ---------------------------------------------------------------- start
 

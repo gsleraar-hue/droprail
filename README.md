@@ -27,10 +27,15 @@ After that it opens normally.
   the rail.
 - Let go and it is saved. The badge at the bottom shows the last catch
   (`PNG`, `JPG`, ...); click it to reveal that file in Explorer or Finder.
-- The folder icon opens the target folder, the gear opens the settings.
+- The folder icon opens the target folder, the power icon switches the rail
+  off, the gear opens the settings.
 - Right-click the rail (or the tray / menu bar icon) for the same menu in short.
-- The grip at the top moves the rail; let go and it snaps to the nearest side
-  of whichever screen it ended up on.
+- Switched off, Droprail keeps running: one click on the tray (Windows) or menu
+  bar (macOS) icon brings the rail back. The first time it says so itself.
+- Grab the rail anywhere that is not a button and drag it; let go and it snaps
+  to the nearest side of whichever screen it ended up on. The dots at the top
+  are there to say the thing can be picked up, but you do not have to aim for
+  them.
 
 ## Settings
 
@@ -40,12 +45,24 @@ Gear in the rail, or double-click the tray / menu bar icon:
   it. Defaults to `Pictures/Droprail`.
 - **Always on top** — keep the rail above your browser, or not.
 - **Show rail** — off leaves only the tray (Windows) or menu bar (macOS) icon.
+- **Off on an external screen** — the rail disappears by itself while an
+  external screen is connected, and comes back when you unplug. Meant for a
+  laptop on a dock, where a rail against the edge is in the way more than it
+  helps. A laptop counts every screen that is not its own panel (with the lid
+  shut, that is the only screen left, which still counts as docked); a desktop
+  has no built-in panel, so there it means a second monitor. Asking for the
+  rail from the tray menu while the rule is holding it back switches the rule
+  off: you asked for it, so you get it.
 - **Start at login**.
 - **Side of the screen** — left or right.
 - **Last catch** — a type badge (default), a thumbnail of the image, or
   nothing. With a badge, no thumbnail is computed at all.
 - **Visibility when idle** — how loud the rail is while you are not using it
-  (15–100%); it turns fully opaque as soon as you hover or drag.
+  (15–100%); it turns fully opaque as soon as you hover or drag. However faint
+  it is, you can still grab it and move it.
+
+At the bottom of the window sits **Quit Droprail**, for when you want it gone
+rather than out of sight.
 
 Changes are saved as you make them, in `config.json` inside the app's user data
 folder (`%APPDATA%\Droprail` on Windows,
@@ -87,6 +104,14 @@ npm run dist-mac # macOS dmg + zip in dist/ (only works on a Mac)
 Files: `main.js` (windows, tray, settings), `catcher.js` (unpack the drag,
 download, save), `renderer/` (the rail and the settings window), `dev/` (icon
 generator and the two tests), `build/after-pack.js` (ad-hoc signing for macOS).
+
+Moving the rail does not go through `-webkit-app-region: drag`. On a frameless
+transparent window that region swallows the mouse without moving anything, so
+the rail stayed put however hard you pulled. The renderer now reports how far
+the pointer has travelled in screen coordinates and `main.js` moves the window
+itself — which is also why you can grab the rail anywhere instead of on a strip
+of dots the width of a pencil. `npm run smoke` acts the whole thing out with a
+synthetic pointer, and fakes a second screen to check the external-screen rule.
 
 Releases are built by GitHub Actions: push a tag (`git tag v0.2.0 && git push
 origin v0.2.0`) and a Windows runner and a Mac runner each build their half,

@@ -44,6 +44,17 @@
 
         <label class="row">
           <span>
+            Off on an external screen
+            <small id="externalHint"
+              >The rail switches itself off while a second screen is
+              connected.</small
+            >
+          </span>
+          <input type="checkbox" id="offExternal" class="switch" />
+        </label>
+
+        <label class="row">
+          <span>
             Start at login
             <small>Droprail starts on its own once you have signed in.</small>
           </span>
@@ -83,7 +94,8 @@
       </section>
 
       <footer>
-        <span class="tip">Everything is saved as you change it.</span>
+        <button type="button" id="quit">Quit Droprail</button>
+        <span class="tip">Saved as you go.</span>
         <button type="button" id="close" class="primary">Done</button>
       </footer>
     </main>
